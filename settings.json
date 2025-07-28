@@ -1,0 +1,7 @@
+{
+  "api_key": "",
+  "api_url": "https://api.siliconflow.cn/v1/chat/completions",
+  "model": "Pro/deepseek-ai/DeepSeek-V3",
+  "speech_engine": "whisper",
+  "silence_threshold": 500
+} 
