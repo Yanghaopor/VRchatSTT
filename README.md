@@ -128,11 +128,6 @@ VRChat语音翻译插件
 ├── OSC通信 (python-osc)
 └── 智能GPU管理 (pynvml)
 ```
-
-## 许可证
-
-MIT License
-
 ## 贡献
 
 欢迎提交Issue和Pull Request！
