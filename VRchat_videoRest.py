@@ -18,6 +18,13 @@ from datetime import datetime
 from faster_whisper import WhisperModel
 from pythonosc.udp_client import SimpleUDPClient
 
+# 备用STT服务
+try:
+    import speech_recognition as sr
+    GOOGLE_STT_AVAILABLE = True
+except ImportError:
+    GOOGLE_STT_AVAILABLE = False
+
 # GPU检测
 try:
     import torch
@@ -290,15 +297,31 @@ class VRChatVoiceTranslator:
                 print(f"删除文件失败: {e}")
                 
         except Exception as e:
-            print(f"语音识别失败: {e}")
-            # 即使识别失败也要删除文件
+            print(f"Faster-Whisper识别失败: {e}")
+            print("尝试使用谷歌STT备用服务...")
+            
+            # 尝试谷歌STT备用服务
+            try:
+                text = self.google_stt_fallback(filename)
+                if text:
+                    print(f"谷歌STT识别结果: {text}")
+                    # 进行AI翻译
+                    self.translate_and_send(text)
+                else:
+                    print("谷歌STT也未识别到语音内容")
+                    # 启动10秒定时器
+                    self.start_ready_timer()
+            except Exception as e2:
+                print(f"谷歌STT备用服务也失败: {e2}")
+                # 启动10秒定时器
+                self.start_ready_timer()
+            
+            # 删除录音文件
             try:
                 os.remove(filename)
                 print(f"录音文件已删除: {filename}")
-            except Exception as e2:
-                print(f"删除文件失败: {e2}")
-            # 启动10秒定时器
-            self.start_ready_timer()
+            except Exception as e3:
+                print(f"删除文件失败: {e3}")
     
     def translate_and_send(self, text):
         """AI翻译并发送到VRChat"""
@@ -364,6 +387,35 @@ class VRChatVoiceTranslator:
             print(f"AI翻译出错: {e}")
             # 启动10秒定时器
             self.start_ready_timer()
+    
+    def google_stt_fallback(self, filename):
+        """谷歌STT备用服务"""
+        if not GOOGLE_STT_AVAILABLE:
+            print("谷歌STT服务不可用，未安装speech_recognition库")
+            return None
+        
+        try:
+            recognizer = sr.Recognizer()
+            
+            with sr.AudioFile(filename) as source:
+                # 调整环境噪音
+                recognizer.adjust_for_ambient_noise(source, duration=0.5)
+                # 录制音频
+                audio = recognizer.record(source)
+            
+            # 使用谷歌STT识别
+            text = recognizer.recognize_google(audio, language='zh-CN')
+            return text.strip()
+            
+        except sr.UnknownValueError:
+            print("谷歌STT无法识别语音内容")
+            return None
+        except sr.RequestError as e:
+            print(f"谷歌STT服务请求失败: {e}")
+            return None
+        except Exception as e:
+            print(f"谷歌STT处理失败: {e}")
+            return None
     
     def cleanup(self):
         """清理资源"""
